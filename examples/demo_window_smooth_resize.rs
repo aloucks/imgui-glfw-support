@@ -81,7 +81,13 @@ fn main() {
         let mut render_fn = |imgui: &mut imgui::Context,
                              window: &mut glfw::Window,
                              swap_chain: &mut wgpu::SwapChain| {
-            let frame = swap_chain.get_next_texture().unwrap();
+            let frame = match swap_chain.get_next_texture() {
+                Ok(frame) => frame,
+                Err(err) => {
+                    eprintln!("get_next_texture timed out: {:?}", err);
+                    return;
+                }
+            };
             last_frame_time = imgui.io_mut().update_delta_time(last_frame_time);
 
             glfw_platform
