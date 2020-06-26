@@ -1,3 +1,4 @@
+use futures::executor::block_on;
 use std::time::Instant;
 
 fn main() {
@@ -14,25 +15,28 @@ fn main() {
 
     let surface = wgpu::Surface::create(&window);
 
-    let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::HighPerformance,
-        backends: wgpu::BackendBit::PRIMARY,
-    })
+    let adapter = block_on(wgpu::Adapter::request(
+        &wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            compatible_surface: None,
+        },
+        wgpu::BackendBit::PRIMARY,
+    ))
     .unwrap();
 
-    let (device, mut queue) = adapter.request_device(&wgpu::DeviceDescriptor {
+    let (device, mut queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
         extensions: wgpu::Extensions {
             anisotropic_filtering: false,
         },
         limits: wgpu::Limits::default(),
-    });
+    }));
 
     let mut swap_chain_desc = wgpu::SwapChainDescriptor {
         usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
         format: wgpu::TextureFormat::Bgra8Unorm,
         width,
         height,
-        present_mode: wgpu::PresentMode::NoVsync,
+        present_mode: wgpu::PresentMode::Immediate,
     };
 
     let mut swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
@@ -77,7 +81,7 @@ fn main() {
         let mut render_fn = |imgui: &mut imgui::Context,
                              window: &mut glfw::Window,
                              swap_chain: &mut wgpu::SwapChain| {
-            let frame = swap_chain.get_next_texture();
+            let frame = swap_chain.get_next_texture().unwrap();
             last_frame_time = imgui.io_mut().update_delta_time(last_frame_time);
 
             glfw_platform
@@ -94,7 +98,7 @@ fn main() {
             }
 
             let mut encoder =
-                device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+                device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
             imgui_renderer
                 .render(ui.render(), &device, &mut encoder, &frame.view)
                 .expect("render failed");

@@ -1,6 +1,6 @@
 [package]
 name = "imgui-glfw-support"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Aaron Loucks <aloucks@cofront.net>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -11,14 +11,15 @@ keywords = ["imgui", "glfw", "wgpu"]
 description = "GLFW support for imgui-rs"
 
 [dependencies]
-glfw = "0.36"
-imgui = "0.3"
+glfw = "0.37"
+imgui = "0.4"
 
 [features]
 vulkan = ["glfw/vulkan"]
 image = ["glfw/image"]
 
 [dev-dependencies]
-wgpu = "0.4"
-imgui-wgpu = "0.5"
-imgui = "0.3"
+wgpu = "0.5"
+imgui-wgpu = "0.7"
+imgui = "0.4"
+futures = "0.3.4"

@@ -1,5 +1,7 @@
 use std::time::Instant;
 
+use futures::executor::block_on;
+
 fn main() {
     let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).expect("GLFW failed to init");
     glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi));
@@ -14,25 +16,28 @@ fn main() {
 
     let surface = wgpu::Surface::create(&window);
 
-    let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::HighPerformance,
-        backends: wgpu::BackendBit::PRIMARY,
-    })
+    let adapter = block_on(wgpu::Adapter::request(
+        &wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            compatible_surface: Some(&surface),
+        },
+        wgpu::BackendBit::PRIMARY,
+    ))
     .unwrap();
 
-    let (device, mut queue) = adapter.request_device(&wgpu::DeviceDescriptor {
+    let (device, mut queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
         extensions: wgpu::Extensions {
             anisotropic_filtering: false,
         },
         limits: wgpu::Limits::default(),
-    });
+    }));
 
     let mut swap_chain_desc = wgpu::SwapChainDescriptor {
         usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
         format: wgpu::TextureFormat::Bgra8Unorm,
         width,
         height,
-        present_mode: wgpu::PresentMode::NoVsync,
+        present_mode: wgpu::PresentMode::Immediate,
     };
 
     let mut swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
@@ -92,7 +97,7 @@ fn main() {
             swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
         }
 
-        let frame = swap_chain.get_next_texture();
+        let frame = swap_chain.get_next_texture().unwrap();
         last_frame_time = imgui.io_mut().update_delta_time(last_frame_time);
 
         glfw_platform
@@ -108,7 +113,8 @@ fn main() {
             glfw_platform.prepare_render(&ui, &mut window);
         }
 
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        let mut encoder =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         imgui_renderer
             .render(ui.render(), &device, &mut encoder, &frame.view)
             .expect("render failed");
