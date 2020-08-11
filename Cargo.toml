@@ -11,7 +11,7 @@ keywords = ["imgui", "glfw", "wgpu"]
 description = "GLFW support for imgui-rs"
 
 [dependencies]
-glfw = "0.37"
+glfw = "0.39.1"
 imgui = "0.4"
 
 [features]
