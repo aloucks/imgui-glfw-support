@@ -12,14 +12,13 @@ description = "GLFW support for imgui-rs"
 
 [dependencies]
 glfw = "0.40"
-imgui = "0.4"
+imgui = "0.5"
 
 [features]
 vulkan = ["glfw/vulkan"]
 image = ["glfw/image"]
 
 [dev-dependencies]
-wgpu = "0.5"
-imgui-wgpu = "0.7"
-imgui = "0.4"
-futures = "0.3.4"
+wgpu = "0.6"
+imgui-wgpu = "0.10"
+futures = "0.3"

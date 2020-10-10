@@ -13,23 +13,25 @@ fn main() {
 
     window.set_all_polling(true);
 
-    let surface = wgpu::Surface::create(&window);
+    let instance = wgpu::Instance::new(wgpu::BackendBit::all());
 
-    let adapter = block_on(wgpu::Adapter::request(
-        &wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: None,
-        },
-        wgpu::BackendBit::PRIMARY,
-    ))
+    let surface = unsafe { instance.create_surface(&window) };
+
+    let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::HighPerformance,
+        compatible_surface: Some(&surface),
+    }))
     .unwrap();
 
-    let (device, mut queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-        extensions: wgpu::Extensions {
-            anisotropic_filtering: false,
+    let (device, queue) = block_on(adapter.request_device(
+        &wgpu::DeviceDescriptor {
+            features: wgpu::Features::empty(),
+            limits: wgpu::Limits::default(),
+            shader_validation: false,
         },
-        limits: wgpu::Limits::default(),
-    }));
+        None,
+    ))
+    .unwrap();
 
     let mut swap_chain_desc = wgpu::SwapChainDescriptor {
         usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
@@ -66,13 +68,8 @@ fn main() {
         a: 1.0,
     };
 
-    let mut imgui_renderer = imgui_wgpu::Renderer::new(
-        &mut imgui,
-        &device,
-        &mut queue,
-        swap_chain_desc.format,
-        Some(clear_color),
-    );
+    let mut imgui_renderer =
+        imgui_wgpu::Renderer::new(&mut imgui, &device, &queue, swap_chain_desc.format);
 
     let mut last_cursor = None;
     let mut last_frame_time = Instant::now();
@@ -81,14 +78,16 @@ fn main() {
         let mut render_fn = |imgui: &mut imgui::Context,
                              window: &mut glfw::Window,
                              swap_chain: &mut wgpu::SwapChain| {
-            let frame = match swap_chain.get_next_texture() {
+            let frame = match swap_chain.get_current_frame() {
                 Ok(frame) => frame,
                 Err(err) => {
                     eprintln!("get_next_texture timed out: {:?}", err);
                     return;
                 }
             };
-            last_frame_time = imgui.io_mut().update_delta_time(last_frame_time);
+            let now = Instant::now();
+            imgui.io_mut().update_delta_time(now - last_frame_time);
+            last_frame_time = now;
 
             glfw_platform
                 .prepare_frame(imgui.io_mut(), window)
@@ -105,10 +104,22 @@ fn main() {
 
             let mut encoder =
                 device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: &frame.output.view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(clear_color),
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: None,
+            });
             imgui_renderer
-                .render(ui.render(), &device, &mut encoder, &frame.view)
+                .render(ui.render(), &queue, &device, &mut render_pass)
                 .expect("render failed");
-            queue.submit(&[encoder.finish()]);
+            drop(render_pass);
+            queue.submit(std::iter::once(encoder.finish()));
         };
 
         glfw.wait_events_timeout_unbuffered(0.1, |_, (_, event)| {
