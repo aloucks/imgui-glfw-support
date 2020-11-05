@@ -156,10 +156,12 @@ impl GlfwPlatform {
     pub fn handle_event(&self, io: &mut Io, _window: &Window, event: &WindowEvent) {
         match *event {
             WindowEvent::Key(key, _scancode, action, modifiers) => {
-                if action == Action::Release {
-                    io.keys_down[key as usize] = false;
-                } else {
-                    io.keys_down[key as usize] = true;
+                if key as i32 >= 0 {
+                    if action == Action::Release {
+                        io.keys_down[key as usize] = false;
+                    } else {
+                        io.keys_down[key as usize] = true;
+                    }
                 }
                 io.key_shift = modifiers.contains(Modifiers::Shift);
                 io.key_ctrl = modifiers.contains(Modifiers::Control);
